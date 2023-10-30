@@ -17,6 +17,7 @@ func main() {
 	defer dao.Close()
 	//绑定模型
 	dao.SqlSession.AutoMigrate(&entity.User{})
+	dao.SqlSession.AutoMigrate(&entity.Essay{})
 	//注册路由
 	r := routes.SetRouter()
 	//启动端口为8081的项目
