@@ -3,8 +3,13 @@ package controller
 import (
 	"DiTing/go/entity"
 	"DiTing/go/service"
+	"bytes"
+	"context"
+	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/qiniu/go-sdk/v7/auth/qbox"
+	"github.com/qiniu/go-sdk/v7/storage"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,22 +18,51 @@ import (
 func PostEssay(ctx *gin.Context) {
 	essayName := ctx.PostForm("essayName")
 	essayContent := ctx.PostForm("essayContent")
-	telephone := sessions.Default(ctx).Get("telephone")
 	publishDate := time.Now()
 
-	var user *entity.User
-	_ = service.GetUser(telephone.(string), user)
+	file, _ := ctx.FormFile(("essayAvatar"))
+	fileSize := file.Size
+	f, _ := file.Open()
+	buf := make([]byte, file.Size)
+	f.Read(buf)
+	var AccessKey = "2w2sKxZdcbcTdad4HAetvTtttxyeL_cGmyDMv6WE"
+	var SerectKey = "DTdvfx0zj_hooKKcqOZmYgdxbPZvAMREuBUrURGC"
+	var Bucket = "diting"                       // 前边创建的空间名称
+	var ImgUrl = "s3bgzzv3a.hd-bkt.clouddn.com" // 前边给的测试域名
+	putPlicy := storage.PutPolicy{
+		Scope: Bucket,
+	}
+	mac := qbox.NewMac(AccessKey, SerectKey)
+	upToken := putPlicy.UploadToken(mac)
+	cfg := storage.Config{
+		Zone:          &storage.ZoneHuadong,
+		UseCdnDomains: false,
+		UseHTTPS:      false,
+	}
+	putExtra := storage.PutExtra{}
+	formUploader := storage.NewFormUploader(&cfg)
+	ret := storage.PutRet{}
+	reader := bytes.NewReader(buf)
+	err := formUploader.PutWithoutKey(context.Background(), &ret, upToken, reader, fileSize, &putExtra)
+	if err != nil {
+		fmt.Println("formUploader.PutWithoutKey err: ", err)
+	}
+	url := ImgUrl + ret.Key
+
+	name := sessions.Default(ctx).Get("userName")
+	avatar := sessions.Default(ctx).Get("userAvatar")
 
 	newEssay := entity.Essay{
 		LikeCount:    0,
-		UserName:     user.Name,
-		UserAvatar:   user.Avatar,
+		UserName:     name.(string),
+		UserAvatar:   avatar.(string),
 		EssayName:    essayName,
 		EssayContent: essayContent,
+		EssayAvatar:  url,
 		PublishDate:  publishDate,
 	}
 
-	err := service.CreateEssay(&newEssay)
+	err = service.CreateEssay(&newEssay)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	} else {
@@ -36,7 +70,7 @@ func PostEssay(ctx *gin.Context) {
 	}
 }
 
-func ShowEssay(ctx *gin.Context) {
+func ShowEssayList(ctx *gin.Context) {
 	offsetParam := ctx.Query("offset")
 	offset, err := strconv.Atoi(offsetParam)
 	if err != nil {
@@ -51,8 +85,24 @@ func ShowEssay(ctx *gin.Context) {
 	}
 }
 
+func ShowEssay(ctx *gin.Context) {
+	idParam := ctx.Query("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})
+		return
+	}
+
+	essayContent, err2 := service.GetEssay(id)
+	if err2 != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err2.Error()})
+	} else {
+		ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "查看成功", "data": essayContent})
+	}
+}
+
 func UpdateLikeCount(ctx *gin.Context) {
-	idParam := ctx.Param("id")
+	idParam := ctx.Query("id")
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid post ID"})

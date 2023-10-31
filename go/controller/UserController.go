@@ -92,8 +92,12 @@ func Login(ctx *gin.Context) {
 	}
 }
 
-func PostAvatar(ctx *gin.Context) string {
-	file, _ := ctx.FormFile(("avatar"))
+func PostUserAvatar(ctx *gin.Context) {
+	file, err := ctx.FormFile(("avatar"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	fileSize := file.Size
 	f, _ := file.Open()
 	buf := make([]byte, file.Size)
@@ -116,20 +120,22 @@ func PostAvatar(ctx *gin.Context) string {
 	formUploader := storage.NewFormUploader(&cfg)
 	ret := storage.PutRet{}
 	reader := bytes.NewReader(buf)
-	err := formUploader.PutWithoutKey(context.Background(), &ret, upToken, reader, fileSize, &putExtra)
+	err = formUploader.PutWithoutKey(context.Background(), &ret, upToken, reader, fileSize, &putExtra)
 	if err != nil {
 		fmt.Println("formUploader.PutWithoutKey err: ", err)
 	}
 	url := ImgUrl + ret.Key
-	return url
-}
 
-func PostUserAvatar(ctx *gin.Context) {
-	url := PostAvatar(ctx)
 	telephone := sessions.Default(ctx).Get("telephone")
-	_ = service.UpdateAvatar(telephone.(string), url)
+	if err = service.UpdateAvatar(telephone.(string), url); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"msg": "上传失败"})
+	} else {
+		s := sessions.Default(ctx)
+		s.Set("userAvatar", url)
+		s.Save()
 
-	ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "上传头像成功", "data": url})
+		ctx.JSON(http.StatusOK, gin.H{"code": 200, "msg": "上传头像成功", "data": url})
+	}
 }
 
 func GetUserMessage(ctx *gin.Context) {

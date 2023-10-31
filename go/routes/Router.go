@@ -2,11 +2,16 @@ package routes
 
 import (
 	"DiTing/go/controller"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
 func SetRouter() *gin.Engine {
 	r := gin.Default()
+
+	store := cookie.NewStore([]byte("secret"))
+	r.Use(sessions.Sessions("session", store))
 
 	//创建各api的路由
 	DiTingGroup := r.Group("DiTing")
@@ -18,8 +23,9 @@ func SetRouter() *gin.Engine {
 		DiTingGroup.GET("/user/showEssay", controller.GetUserEssay)
 
 		DiTingGroup.POST("/essay/post", controller.PostEssay)
-		DiTingGroup.GET("/essay/show", controller.ShowEssay)
-		DiTingGroup.POST("/essay/likes:id", controller.UpdateLikeCount)
+		DiTingGroup.GET("/essay/showList", controller.ShowEssayList)
+		DiTingGroup.GET("/essay/showEssay", controller.ShowEssay)
+		DiTingGroup.GET("/essay/likes", controller.UpdateLikeCount)
 	}
 
 	return r
