@@ -2,6 +2,7 @@ package routes
 
 import (
 	"DiTing/go/controller"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,11 @@ func SetRouter() *gin.Engine {
 		DiTingGroup.GET("/essay/showList", controller.ShowEssayList)
 		DiTingGroup.GET("/essay/showEssay", controller.ShowEssay)
 		DiTingGroup.GET("/essay/likes", controller.UpdateLikeCount)
+
+		DiTingGroup.POST("/website/post", controller.PostWebsite)
+		DiTingGroup.GET("/website/tag", controller.GetUrlTag)
+		DiTingGroup.GET("/website/showList", controller.ShowDangerUrlList)
+
 	}
 
 	return r
